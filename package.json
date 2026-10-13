@@ -1,0 +1,34 @@
+{
+  "name": "sherm-hospital-emergency-manager",
+  "version": "1.0.0",
+  "description": "Smart Hospital Emergency Resource Manager (SHERM) - HEC Hackathon Full-Stack Web Application",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
+  },
+  "keywords": [
+    "hospital",
+    "emergency",
+    "resource-manager",
+    "triage",
+    "sqlite",
+    "express"
+  ],
+  "author": "Antigravity Engineer",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.0.3",
+    "chart.js": "^4.5.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.7",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
+    "express-session": "^1.19.0",
+    "helmet": "^8.3.0"
+  }
+}

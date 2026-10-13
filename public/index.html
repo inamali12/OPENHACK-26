@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SHERM — Smart Hospital Emergency Resource Manager</title>
+  <meta name="description" content="Centralized emergency operations command center for patient triage, bed tracking, physician allocation, and ambulance dispatch.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <!-- Local Bundled Chart.js for 100% offline operation -->
+  <script src="/vendor/chart.umd.js"></script>
+</head><body class="theme-dark">
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- Reusable Confirmation Dialog Modal -->
+  <div id="confirm-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-title" class="modal-title">Confirm Action</h3>
+        <button id="modal-close-btn" class="modal-close" aria-label="Close dialog">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="modal-message">Are you sure you want to perform this action?</p>
+      </div>
+      <div class="modal-actions">
+        <button id="modal-cancel-btn" class="btn btn-secondary">Cancel</button>
+        <button id="modal-confirm-btn" class="btn btn-danger">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generic Data Modal (Detail / Edit / Add) -->
+  <div id="generic-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="modal-card modal-large">
+      <div class="modal-header">
+        <h3 id="generic-modal-title" class="modal-title">Resource Details</h3>
+        <button id="generic-modal-close" class="modal-close" aria-label="Close dialog">&times;</button>
+      </div>
+      <div id="generic-modal-body" class="modal-body">
+        <!-- Injected via JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <!-- LOGIN VIEW -->
+  <section id="view-login" class="login-view">
+    <div class="login-container">
+      <div class="login-brand">
+        <div class="brand-badge">
+          <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2v20M2 12h20M7 7l10 10M17 7L7 17" stroke-linecap="round"/>
+          </svg>
+          <span class="brand-name">SHERM</span>
+        </div>
+        <h1 class="login-heading">Emergency Operations Command</h1>
+        <p class="login-subheading">Centralized Emergency Patient Triage & Resource Allocation System</p>
+      </div>
+
+      <div class="login-card">
+        <!-- 1-Click Instant Demo Launch Button -->
+        <button type="button" id="btn-quick-launch" class="btn btn-primary btn-block mb-3" style="background:#0284c7;font-size:0.95rem;padding:0.75rem;box-shadow:0 2px 4px rgba(2,132,199,0.3);">
+          🚀 Instant Launch: Emergency Coordinator
+        </button>
+
+        <div style="text-align:center;color:#64748b;font-size:0.75rem;margin-bottom:0.85rem;font-weight:600;letter-spacing:0.05em;">
+          &mdash; OR SIGN IN WITH SPECIFIC ROLE &mdash;
+        </div>
+
+        <form id="login-form" class="login-form">
+          <div class="form-group">
+            <label for="login-username" class="form-label">Username</label>
+            <input type="text" id="login-username" class="form-control" placeholder="e.g. coordinator, admin, staff" required autocomplete="username">
+          </div>
+
+          <div class="form-group">
+            <label for="login-password" class="form-label">Password</label>
+            <input type="password" id="login-password" class="form-control" placeholder="Enter password" required autocomplete="current-password">
+          </div>
+
+          <div id="login-error" class="alert alert-danger hidden" role="alert"></div>
+
+          <button type="submit" id="login-submit-btn" class="btn btn-primary btn-block">
+            <span class="btn-text">Authenticate & Sign In</span>
+            <span class="spinner hidden"></span>
+          </button>
+        </form>
+
+        <div class="demo-accounts-box">
+          <div class="demo-box-header">
+            <span class="demo-tag">HEC Hackathon 1-Click Demo Accounts</span>
+            <small class="demo-subtext">Click any button below to instantly authenticate & launch:</small>
+          </div>
+          <div class="demo-btn-grid">
+            <button type="button" class="btn-demo-fill" data-user="coordinator" data-pass="coord123" data-role="Coordinator">
+              <strong style="color:#0284c7;">Coordinator</strong>
+              <small>Click to Launch</small>
+            </button>
+            <button type="button" class="btn-demo-fill" data-user="admin" data-pass="admin123" data-role="Admin">
+              <strong>Admin</strong>
+              <small>Click to Launch</small>
+            </button>
+            <button type="button" class="btn-demo-fill" data-user="staff" data-pass="staff123" data-role="Staff">
+              <strong>Staff</strong>
+              <small>Click to Launch</small>
+            </button>
+          </div>
+          <p class="disclaimer-text">
+            ⚠️ <em>Demonstration data only. This application does not claim to provide autonomous clinical triage or medically validated diagnosis.</em>
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN APPLICATION SHELL -->
+  <div id="app-shell" class="app-shell hidden">
+    <!-- SIDEBAR NAVIGATION -->
+    <aside id="app-sidebar" class="app-sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-brand">
+          <div class="brand-icon-wrap">
+            <svg class="brand-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M12 3v18M3 12h18" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="brand-text-wrap">
+            <span class="brand-title">SHERM</span>
+            <span class="brand-tag">Emergency Command</span>
+          </div>
+        </div>
+        <button id="sidebar-toggle-btn" class="sidebar-toggle" aria-label="Toggle navigation">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Main Navigation">
+        <div class="nav-section-label">OPERATIONS</div>
+        <button class="nav-item active" data-view="dashboard">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span class="nav-label">Command Dashboard</span>
+        </button>
+
+        <button class="nav-item" data-view="cases">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+            <path d="M9 12h6M9 16h6"></path>
+          </svg>
+          <span class="nav-label">Emergency Cases</span>
+        </button>
+
+        <button class="nav-item role-gated" data-view="register-case" data-roles="admin,coordinator">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="16"></line>
+            <line x1="8" y1="12" x2="16" y2="12"></line>
+          </svg>
+          <span class="nav-label">Register Case</span>
+        </button>
+
+        <button class="nav-item" data-view="allocation">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+          <span class="nav-label">Resource Allocation</span>
+          <span id="nav-pending-badge" class="nav-badge hidden">0</span>
+        </button>
+
+        <div class="nav-section-label">HOSPITAL ASSETS</div>
+        <button class="nav-item" data-view="beds">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20M6 8v9"></path>
+          </svg>
+          <span class="nav-label">Bed Management</span>
+        </button>
+
+        <button class="nav-item" data-view="doctors">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <span class="nav-label">Doctor Roster</span>
+        </button>
+
+        <button class="nav-item" data-view="ambulances">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="1" y="3" width="15" height="13"></rect>
+            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+            <circle cx="5.5" cy="18.5" r="2.5"></circle>
+            <circle cx="18.5" cy="18.5" r="2.5"></circle>
+          </svg>
+          <span class="nav-label">Ambulance Fleet</span>
+        </button>
+
+        <div class="nav-section-label">AUDIT & SYSTEM</div>
+        <button class="nav-item" data-view="audit">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span class="nav-label">Activity & Audit Log</span>
+        </button>
+
+        <button class="nav-item role-gated" data-view="settings" data-roles="admin">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          <span class="nav-label">System & Priorities</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-profile-badge">
+          <div class="avatar-circle" id="user-avatar">AD</div>
+          <div class="user-info">
+            <span id="user-display-name" class="user-name">Morrison</span>
+            <span id="user-display-role" class="user-role badge-role">Admin</span>
+          </div>
+        </div>
+        <button id="logout-btn" class="btn-logout" title="Sign Out">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT VIEW AREA -->
+    <main class="app-main">
+      <!-- TOP TELEMETRY LIVE TICKER -->
+      <div class="telemetry-ticker" id="main-telemetry-ticker">
+        <div class="ticker-left">
+          <span class="ticker-beacon"></span>
+          <span class="ticker-content">
+            <strong>SHERM MISSION CONTROL:</strong>
+            ACTIVE TRAUMA: <span id="ticker-critical" style="color:var(--color-critical);font-weight:700;">-- CRITICAL</span> &bull;
+            OCCUPANCY: <span id="ticker-occupancy" style="color:var(--accent-cyan);font-weight:700;">--%</span> &bull;
+            FLEET READY: <span id="ticker-ambulances" style="color:var(--color-available);font-weight:700;">-- UNITS</span>
+          </span>
+        </div>
+        <div class="ticker-right">
+          <span>LIVE SSE: <strong id="ticker-sse" style="color:var(--color-available);">CONNECTED</strong></span>
+          <span>DATABASE: <strong>SQLITE WAL (ONLINE)</strong></span>
+          <span>ALLOCATION ENGINE: <strong style="color:var(--accent-cyan);">ACTIVE</strong></span>
+        </div>
+      </div>
+
+      <!-- TOP STATUS BAR -->
+      <header class="top-header">
+        <div class="header-left">
+          <h2 id="current-view-title" class="view-title">Emergency Command Dashboard</h2>
+          <span class="hospital-subhead">Metro Central Emergency Trauma Command</span>
+        </div>
+
+        <div class="header-right">
+          <!-- Live SSE Status Indicator -->
+          <div class="sse-status-badge" id="sse-indicator" title="Live stream updates">
+            <span class="pulse-dot"></span>
+            <span id="sse-status-text">LIVE SSE</span>
+          </div>
+
+          <!-- Role Switcher -->
+          <div class="role-switcher-box flex-gap" title="Switch operational demonstration role">
+            <label for="header-role-select" class="text-xs font-semibold" style="color:var(--text-muted);">Role:</label>
+            <select id="header-role-select" class="form-control text-xs" style="padding:0.25rem 0.5rem;font-weight:600;height:auto;display:inline-block;width:auto;cursor:pointer;">
+              <option value="coordinator" selected>Emergency Coordinator</option>
+              <option value="admin">Administrator</option>
+              <option value="staff">Hospital Staff</option>
+            </select>
+          </div>
+
+          <!-- Theme Toggle Button -->
+          <button id="theme-toggle-btn" class="btn btn-outline btn-sm" title="Toggle Mission Dark / Clinical Light Mode">
+            <span id="theme-icon">☀️</span>
+            <span id="theme-label">Light Mode</span>
+          </button>
+
+          <!-- Quick Search Button -->
+          <button id="btn-quick-search" class="btn btn-outline btn-sm" title="Command Search (Ctrl+K)">
+            <span>🔍</span> <span class="kbd-hint">Ctrl+K</span>
+          </button>
+
+          <!-- Interactive Demo Tour Button -->
+          <button id="btn-demo-tour" class="btn btn-primary btn-sm" title="Launch Interactive 5-Step Hackathon Walkthrough">
+            <span>🎯 Demo Tour</span>
+          </button>
+
+          <!-- Emergency Notifications Center Bell -->
+          <div class="notification-bell-wrap">
+            <button id="btn-notification-bell" class="btn btn-outline btn-sm" title="Emergency Alerts (WhatsApp / Email / In-App)" style="position:relative;">
+              <span>🔔</span>
+              <span id="notification-badge" class="nav-badge" style="position:absolute;top:-4px;right:-4px;padding:0.1rem 0.35rem;font-size:0.65rem;">3</span>
+            </button>
+
+            <!-- Dropdown Notification Drawer -->
+            <div id="notification-dropdown" class="notification-dropdown hidden">
+              <div class="notification-dropdown-header flex-between">
+                <div>
+                  <strong style="color:var(--text-main);font-size:0.875rem;">Emergency Notification Center</strong>
+                  <div style="font-size:0.7rem;color:var(--text-muted);">Channels: WhatsApp &bull; Email &bull; In-App Dispatch</div>
+                </div>
+                <button id="btn-clear-notifications" class="btn btn-xs btn-outline">Clear</button>
+              </div>
+              <div id="notification-list" class="notification-list">
+                <!-- Notifications injected here -->
+              </div>
+              <div class="notification-dropdown-footer flex-between">
+                <button id="btn-open-broadcast-modal" class="btn btn-primary btn-xs" style="width:100%;background:#25d366;border-color:#25d366;color:#ffffff;font-weight:700;">
+                  📲 Broadcast Emergency Alert (WhatsApp / SMS)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Surge Event Trigger (Demo / Hackathon Showcase) -->
+          <button id="btn-simulate-surge" class="btn btn-outline btn-sm role-gated" data-roles="admin,coordinator" title="Simulate mass casualty intake influx" style="border-color:#f59e0b;color:#f59e0b;">
+            <span>⚡ Simulate Surge Influx</span>
+          </button>
+
+          <!-- Manual Refresh Button -->
+          <button id="manual-refresh-btn" class="btn btn-outline btn-sm" title="Refresh current view">
+            <svg class="icon-refresh" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>Refresh</span>
+          </button>
+
+          <!-- Current Time Clock -->
+          <div class="clock-display" id="system-clock">--:--:--</div>
+        </div>
+      </header>
+
+      <!-- VIEW PANELS -->
+      <div class="content-body">
+        
+        <!-- ========================================== -->
+        <!-- 1. DASHBOARD VIEW                          -->
+        <!-- ========================================== -->
+        <section id="panel-dashboard" class="view-panel active">
+          <!-- Resource Shortage Alert Banner (Conditional) -->
+          <div id="shortage-banner-container"></div>
+
+          <!-- Key Summary Cards -->
+          <div class="metrics-grid">
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-title">Active Emergency Cases</span>
+                <span class="stat-icon-wrap icon-blue">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path></svg>
+                </span>
+              </div>
+              <div class="stat-value" id="stat-active-cases">--</div>
+              <div class="stat-subtext">
+                <span id="stat-critical-cases" class="badge badge-critical">-- Critical</span>
+                <span id="stat-awaiting-cases" class="stat-note">-- awaiting allocation</span>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-title">Bed Occupancy Rate</span>
+                <span class="stat-icon-wrap icon-emerald">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20"></path></svg>
+                </span>
+              </div>
+              <div class="stat-value" id="stat-bed-rate">--%</div>
+              <div class="stat-subtext">
+                <span id="stat-beds-available" class="text-success font-semibold">-- Available</span>
+                <span class="stat-divider">/</span>
+                <span id="stat-beds-total">-- Total</span>
+              </div>
+              <div class="progress-bar-bg mt-2">
+                <div id="stat-bed-progress" class="progress-bar-fill" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-title">On-Duty Physicians</span>
+                <span class="stat-icon-wrap icon-indigo">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                </span>
+              </div>
+              <div class="stat-value" id="stat-doctors-available">--</div>
+              <div class="stat-subtext">
+                <span id="stat-doctors-ready" class="text-success font-semibold">-- Available</span>
+                <span class="stat-divider">/</span>
+                <span id="stat-doctors-busy">-- Active Shift</span>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-title">Ambulance Readiness</span>
+                <span class="stat-icon-wrap icon-amber">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon></svg>
+                </span>
+              </div>
+              <div class="stat-value" id="stat-ambulances-ready">--</div>
+              <div class="stat-subtext">
+                <span id="stat-ambulances-active" class="text-warning">-- Dispatched / In Transit</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Urgent Priority Operational Queue -->
+          <div class="card mt-4">
+            <div class="card-header flex-between">
+              <div>
+                <h3 class="card-title">Urgent Priority Operational Queue</h3>
+                <p class="card-subtitle">Active emergency intakes sorted by administrative priority and wait time</p>
+              </div>
+              <button class="btn btn-primary btn-sm" id="btn-quick-new-case">
+                + Register Incoming Case
+              </button>
+            </div>
+            <div class="table-responsive">
+              <table class="table" id="urgent-queue-table">
+                <thead>
+                  <tr>
+                    <th>Case ID</th>
+                    <th>Patient Ref</th>
+                    <th>Priority</th>
+                    <th>Category</th>
+                    <th>Care Area</th>
+                    <th>Arrival</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="urgent-queue-tbody">
+                  <tr><td colspan="8" class="text-center py-4">Loading operational queue...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Charts Row -->
+          <div class="charts-grid mt-4">
+            <div class="card">
+              <div class="card-header">
+                <h3 class="card-title">Bed Occupancy by Care Area</h3>
+                <p class="card-subtitle">Real-time status across hospital wards</p>
+              </div>
+              <div class="chart-container">
+                <canvas id="chart-beds-ward"></canvas>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3 class="card-title">Physician Capacity by Specialty</h3>
+                <p class="card-subtitle">Active assigned patient load vs maximum limit</p>
+              </div>
+              <div class="chart-container">
+                <canvas id="chart-doctors-workload"></canvas>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3 class="card-title">Ambulance Fleet Status</h3>
+                <p class="card-subtitle">Simulated vehicle readiness distribution</p>
+              </div>
+              <div class="chart-container">
+                <canvas id="chart-ambulances"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Activity Mini Feed -->
+          <div class="card mt-4">
+            <div class="card-header flex-between">
+              <h3 class="card-title">Live Dispatch & Operational Activity Feed</h3>
+              <button class="btn btn-outline btn-xs" id="btn-view-all-audit">View Full Audit Trail</button>
+            </div>
+            <div class="activity-feed-list" id="dashboard-activity-feed">
+              <p class="text-muted">Loading live activity...</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 2. EMERGENCY CASES VIEW                    -->
+        <!-- ========================================== -->
+        <section id="panel-cases" class="view-panel">
+          <div class="card">
+            <div class="card-header flex-between">
+              <div>
+                <h3 class="card-title">Emergency Cases Directory</h3>
+                <p class="card-subtitle">Comprehensive searchable roster of hospital emergency cases</p>
+              </div>
+              <button class="btn btn-primary" id="btn-cases-new">
+                + Register New Case
+              </button>
+            </div>
+
+            <!-- Filters Bar -->
+            <div class="filters-bar">
+              <div class="filter-item search-input-wrap">
+                <input type="text" id="cases-search" class="form-control" placeholder="Search Case ID, Ref, Notes...">
+              </div>
+              <div class="filter-item">
+                <select id="cases-filter-priority" class="form-control">
+                  <option value="">All Priorities</option>
+                  <option value="Critical">Critical</option>
+                  <option value="High">High</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Low">Low</option>
+                </select>
+              </div>
+              <div class="filter-item">
+                <select id="cases-filter-status" class="form-control">
+                  <option value="">All Statuses</option>
+                  <option value="New">New</option>
+                  <option value="Triage">Triage</option>
+                  <option value="Allocated">Allocated</option>
+                  <option value="In Treatment">In Treatment</option>
+                  <option value="Closed">Closed</option>
+                </select>
+              </div>
+              <div class="filter-item">
+                <select id="cases-filter-area" class="form-control">
+                  <option value="">All Care Areas</option>
+                  <option value="Emergency Dept">Emergency Dept</option>
+                  <option value="Trauma Bay">Trauma Bay</option>
+                  <option value="ICU">ICU</option>
+                  <option value="Step-Down">Step-Down</option>
+                  <option value="Observation">Observation</option>
+                </select>
+              </div>
+              <button id="cases-filter-reset" class="btn btn-secondary btn-sm">Reset</button>
+            </div>
+
+            <!-- Cases Table -->
+            <div class="table-responsive">
+              <table class="table" id="cases-main-table">
+                <thead>
+                  <tr>
+                    <th>Case #</th>
+                    <th>Patient Ref</th>
+                    <th>Priority</th>
+                    <th>Category</th>
+                    <th>Care Area</th>
+                    <th>Specialty</th>
+                    <th>Assigned Resources</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="cases-tbody">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination-footer flex-between mt-3">
+              <div id="cases-page-info" class="page-info">Showing cases</div>
+              <div class="pagination-btns">
+                <button id="cases-prev-btn" class="btn btn-outline btn-sm">Previous</button>
+                <button id="cases-next-btn" class="btn btn-outline btn-sm">Next</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 3. REGISTER EMERGENCY CASE VIEW            -->
+        <!-- ========================================== -->
+        <section id="panel-register-case" class="view-panel">
+          <div class="card max-w-4xl mx-auto">
+            <div class="card-header">
+              <h3 class="card-title">Register Incoming Emergency Case</h3>
+              <p class="card-subtitle">Intake registration with automatic reference generator and operational requirements</p>
+            </div>
+
+            <!-- 1-Click Clinical Triage Presets -->
+            <div class="triage-presets-bar">
+              <span class="text-xs font-bold text-cyan">⚡ 1-Click Clinical Presets:</span>
+              <button type="button" class="preset-btn" data-preset="trauma">🚨 Major Trauma (Critical)</button>
+              <button type="button" class="preset-btn" data-preset="cardiac">❤️ Acute STEMI Cardiac (Critical)</button>
+              <button type="button" class="preset-btn" data-preset="stroke">🧠 Acute Stroke (High)</button>
+              <button type="button" class="preset-btn" data-preset="respiratory">🫁 Severe Asthma (High)</button>
+              <button type="button" class="preset-btn" data-preset="minor">🩹 Fracture / Minor (Low)</button>
+            </div>
+
+            <form id="register-case-form" class="form-grid">
+              <div class="form-row col-2">
+                <div class="form-group">
+                  <label for="reg-case-number" class="form-label">Case Identifier</label>
+                  <div class="input-with-action">
+                    <input type="text" id="reg-case-number" class="form-control font-mono" required readonly>
+                    <button type="button" id="btn-regen-case-num" class="btn btn-outline btn-sm" title="Regenerate ID">↺</button>
+                  </div>
+                  <small class="form-hint">Generated unique hospital tracking number</small>
+                </div>
+
+                <div class="form-group">
+                  <label for="reg-patient-ref" class="form-label">Patient Ref (Pseudonymous)</label>
+                  <div class="input-with-action">
+                    <input type="text" id="reg-patient-ref" class="form-control font-mono" required readonly>
+                    <button type="button" id="btn-regen-patient-ref" class="btn btn-outline btn-sm" title="Regenerate Ref">↺</button>
+                  </div>
+                  <small class="form-hint">Pseudonymous demonstration identifier</small>
+                </div>
+              </div>
+
+              <div class="form-row col-3">
+                <div class="form-group">
+                  <label for="reg-age" class="form-label">Patient Age (Optional)</label>
+                  <input type="number" id="reg-age" class="form-control" min="0" max="120" placeholder="e.g. 45">
+                </div>
+
+                <div class="form-group">
+                  <label for="reg-arrival" class="form-label">Arrival Timestamp</label>
+                  <input type="datetime-local" id="reg-arrival" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                  <label for="reg-priority" class="form-label">Administrative Priority</label>
+                  <select id="reg-priority" class="form-control" required>
+                    <option value="Critical" class="text-danger">Critical (Immediate - Score 100)</option>
+                    <option value="High" class="text-warning">High (Urgent - Score 75)</option>
+                    <option value="Medium" selected>Medium (Semi-Urgent - Score 50)</option>
+                    <option value="Low">Low (Standard - Score 25)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-row col-3">
+                <div class="form-group">
+                  <label for="reg-category" class="form-label">Emergency Category</label>
+                  <select id="reg-category" class="form-control" required>
+                    <option value="General Emergency">General Emergency</option>
+                    <option value="Cardiovascular">Cardiovascular</option>
+                    <option value="Trauma">Trauma & Resuscitation</option>
+                    <option value="Respiratory">Respiratory</option>
+                    <option value="Neurological">Neurological / Stroke</option>
+                    <option value="Pediatric">Pediatric Emergency</option>
+                    <option value="Orthopedic">Orthopedic Injury</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="reg-care-area" class="form-label">Requested Care Area</label>
+                  <select id="reg-care-area" class="form-control" required>
+                    <option value="Emergency Dept">Emergency Dept</option>
+                    <option value="Trauma Bay">Trauma Bay</option>
+                    <option value="ICU">Intensive Care Unit (ICU)</option>
+                    <option value="Step-Down">Step-Down Unit</option>
+                    <option value="Observation">Observation Unit</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="reg-specialty" class="form-label">Required Specialty (If known)</label>
+                  <select id="reg-specialty" class="form-control">
+                    <option value="">Any Available Physician</option>
+                    <option value="Emergency Medicine">Emergency Medicine</option>
+                    <option value="Trauma Surgery">Trauma Surgery</option>
+                    <option value="Cardiology">Cardiology</option>
+                    <option value="Neurology">Neurology</option>
+                    <option value="Orthopedics">Orthopedics</option>
+                    <option value="Pediatrics">Pediatrics</option>
+                    <option value="Critical Care / ICU">Critical Care / ICU</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-checkbox-label">
+                  <input type="checkbox" id="reg-transport" class="form-checkbox">
+                  <span><strong>Ambulance Transport Required</strong> (Requires dispatching an emergency unit)</span>
+                </label>
+              </div>
+
+              <div class="form-group">
+                <label for="reg-notes" class="form-label">Operational Notes (Non-diagnostic)</label>
+                <textarea id="reg-notes" class="form-control" rows="3" placeholder="Operational briefing notes (e.g. simulated symptoms, arrival details, oxygen requirements)..."></textarea>
+              </div>
+
+              <div class="form-actions mt-3 flex-between">
+                <button type="button" id="btn-cancel-reg" class="btn btn-secondary">Cancel</button>
+                <button type="submit" id="btn-submit-reg" class="btn btn-primary">
+                  <span>Register Emergency Case</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 4. RESOURCE ALLOCATION WORKBENCH           -->
+        <!-- ========================================== -->
+        <section id="panel-allocation" class="view-panel">
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">Transparent Resource Allocation Workbench</h3>
+              <p class="card-subtitle">Multi-criteria administrative recommendation engine with human authorization</p>
+            </div>
+
+            <!-- Case Selection Bar -->
+            <div class="allocation-select-box p-4 bg-slate-50 border-rounded">
+              <label for="alloc-case-select" class="form-label font-semibold">Select Emergency Case for Allocation Evaluation:</label>
+              <div class="flex-gap">
+                <select id="alloc-case-select" class="form-control">
+                  <option value="">-- Choose active emergency case --</option>
+                </select>
+                <button id="btn-run-recommendation" class="btn btn-primary">
+                  <span>⚡ Evaluate & Recommend</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Recommendation Display Card -->
+            <div id="recommendation-results" class="mt-4 hidden">
+              <!-- Injected by JavaScript -->
+            </div>
+
+            <!-- Allocation History -->
+            <div class="mt-5">
+              <h4 class="section-title">Resource Allocation History & Audit</h4>
+              <div class="table-responsive">
+                <table class="table" id="allocation-history-table">
+                  <thead>
+                    <tr>
+                      <th>Allocation ID</th>
+                      <th>Case</th>
+                      <th>Assigned Bed</th>
+                      <th>Assigned Doctor</th>
+                      <th>Ambulance</th>
+                      <th>Authorized By</th>
+                      <th>Date / Time</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="allocation-history-tbody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 5. BED MANAGEMENT VIEW                     -->
+        <!-- ========================================== -->
+        <section id="panel-beds" class="view-panel">
+          <div class="card">
+            <div class="card-header flex-between">
+              <div>
+                <h3 class="card-title">Hospital Bed Management & Floor Grid</h3>
+                <p class="card-subtitle">Real-time status of acute, critical, and observation hospital beds</p>
+              </div>
+              <button class="btn btn-primary btn-sm role-gated" id="btn-add-bed-modal" data-roles="admin,coordinator">
+                + Add Bed
+              </button>
+            </div>
+
+            <!-- Summary Chips -->
+            <div class="bed-summary-chips" id="bed-summary-chips">
+              <!-- Dynamically populated -->
+            </div>
+
+            <!-- Bed Filters -->
+            <div class="filters-bar mt-3">
+              <div class="filter-item">
+                <select id="beds-filter-ward" class="form-control">
+                  <option value="">All Wards / Units</option>
+                  <option value="Emergency Dept">Emergency Dept</option>
+                  <option value="Trauma Bay">Trauma Bay</option>
+                  <option value="ICU">ICU</option>
+                  <option value="Step-Down">Step-Down</option>
+                  <option value="Observation">Observation</option>
+                </select>
+              </div>
+              <div class="filter-item">
+                <select id="beds-filter-status" class="form-control">
+                  <option value="">All Bed Statuses</option>
+                  <option value="Available">Available</option>
+                  <option value="Occupied">Occupied</option>
+                  <option value="Out of Service">Out of Service</option>
+                </select>
+              </div>
+              <button id="beds-filter-reset" class="btn btn-secondary btn-sm">Reset</button>
+            </div>
+
+            <!-- Visual Ward Floor Grid -->
+            <div class="ward-grid-section mt-4">
+              <div class="view-mode-toggle flex-between mb-3">
+                <span class="font-semibold text-sm">WARD FLOOR LAYOUT</span>
+                <div class="btn-group">
+                  <button id="btn-view-grid" class="btn btn-outline btn-xs active">Grid View</button>
+                  <button id="btn-view-table" class="btn btn-outline btn-xs">Table View</button>
+                </div>
+              </div>
+
+              <div id="beds-visual-grid" class="beds-visual-grid">
+                <!-- Visual Cards injected here -->
+              </div>
+
+              <!-- Bed Table View (Alternate) -->
+              <div id="beds-table-container" class="table-responsive hidden mt-3">
+                <table class="table" id="beds-table">
+                  <thead>
+                    <tr>
+                      <th>Bed #</th>
+                      <th>Ward</th>
+                      <th>Type</th>
+                      <th>Status</th>
+                      <th>Assigned Case</th>
+                      <th>Notes</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="beds-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 6. DOCTOR ROSTER VIEW                      -->
+        <!-- ========================================== -->
+        <section id="panel-doctors" class="view-panel">
+          <div class="card">
+            <div class="card-header flex-between">
+              <div>
+                <h3 class="card-title">Physician & Staff Roster</h3>
+                <p class="card-subtitle">Active shift tracking, specialty coverage, and workload monitoring</p>
+              </div>
+              <button class="btn btn-primary btn-sm role-gated" id="btn-add-doctor-modal" data-roles="admin">
+                + Add Doctor
+              </button>
+            </div>
+
+            <!-- Doctor Filters -->
+            <div class="filters-bar">
+              <div class="filter-item">
+                <select id="doc-filter-specialty" class="form-control">
+                  <option value="">All Specialties</option>
+                  <option value="Emergency Medicine">Emergency Medicine</option>
+                  <option value="Trauma Surgery">Trauma Surgery</option>
+                  <option value="Cardiology">Cardiology</option>
+                  <option value="Neurology">Neurology</option>
+                  <option value="Orthopedics">Orthopedics</option>
+                  <option value="Pediatrics">Pediatrics</option>
+                  <option value="Critical Care / ICU">Critical Care / ICU</option>
+                  <option value="General Emergency">General Emergency</option>
+                </select>
+              </div>
+              <div class="filter-item">
+                <select id="doc-filter-status" class="form-control">
+                  <option value="">All Statuses</option>
+                  <option value="Available">Available</option>
+                  <option value="Busy">Busy (At Capacity)</option>
+                  <option value="Off Duty">Off Duty</option>
+                </select>
+              </div>
+              <div class="filter-item">
+                <select id="doc-filter-shift" class="form-control">
+                  <option value="">All Shifts</option>
+                  <option value="Day">Day Shift</option>
+                  <option value="Evening">Evening Shift</option>
+                  <option value="Night">Night Shift</option>
+                </select>
+              </div>
+              <button id="doc-filter-reset" class="btn btn-secondary btn-sm">Reset</button>
+            </div>
+
+            <!-- Doctor Cards Grid -->
+            <div id="doctors-cards-grid" class="doctors-cards-grid mt-4">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 7. AMBULANCE FLEET VIEW                    -->
+        <!-- ========================================== -->
+        <section id="panel-ambulances" class="view-panel">
+          <div class="card">
+            <div class="card-header flex-between">
+              <div>
+                <h3 class="card-title">Emergency Ambulance Fleet</h3>
+                <p class="card-subtitle">Fleet readiness tracking and simulated transport progression</p>
+              </div>
+              <button class="btn btn-primary btn-sm role-gated" id="btn-add-ambulance-modal" data-roles="admin,coordinator">
+                + Register Ambulance
+              </button>
+            </div>
+
+            <div class="ambulance-notice-box p-3 mb-3 bg-blue-50 border-rounded">
+              <small class="text-blue-800">
+                ℹ️ <strong>Simulated Fleet Dispatch:</strong> Click <strong>"Simulate Step"</strong> on any unit to progress its status: <em>Available → Dispatched → En Route → At Hospital → Available</em>. All coordinates and locations are simulated demonstration values.
+              </small>
+            </div>
+
+            <!-- Interactive Live Dispatch GPS Radar Widget -->
+            <div class="dispatch-radar-container" id="ambulance-radar-widget">
+              <div class="radar-scope">
+                <div class="radar-ring ring-1"></div>
+                <div class="radar-ring ring-2"></div>
+                <div class="radar-ring ring-3"></div>
+                <div class="radar-crosshair-x"></div>
+                <div class="radar-crosshair-y"></div>
+                <div class="radar-sweep"></div>
+                <div class="radar-hub" title="Metro Central Hospital Hub">H</div>
+                <!-- Radar blips injected dynamically -->
+                <div id="radar-blips-container"></div>
+              </div>
+              <div class="radar-telemetry-panel">
+                <div class="radar-telemetry-header">
+                  <div>
+                    <h4 class="font-bold text-sm text-cyan">GPS FLEET TELEMETRY & DISPATCH RADAR</h4>
+                    <span class="text-xs text-muted">Simulated real-time vehicle coordinates & proximity radar</span>
+                  </div>
+                  <span class="badge badge-available">● RADAR ONLINE</span>
+                </div>
+                <div class="radar-telemetry-grid" id="radar-telemetry-cards">
+                  <!-- Injected via JavaScript -->
+                </div>
+                <div class="flex-between text-xs text-muted pt-2" style="border-top:1px solid var(--border-color);">
+                  <span>Concentric Range: <strong>5km / 10km / 15km</strong></span>
+                  <span>Center Hub: <strong>Trauma Bay Entrance</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ambulances Grid -->
+            <div id="ambulances-grid" class="ambulances-grid">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 8. ACTIVITY & AUDIT LOG VIEW               -->
+        <!-- ========================================== -->
+        <section id="panel-audit" class="view-panel">
+          <div class="card">
+            <div class="card-header flex-between">
+              <div>
+                <h3 class="card-title">System Activity & Audit Trail</h3>
+                <p class="card-subtitle">Immutable chronological log of all hospital operations, triage actions, and resource assignments</p>
+              </div>
+              <button id="btn-export-audit" class="btn btn-outline btn-sm">Export Log</button>
+            </div>
+
+            <!-- Audit Filter -->
+            <div class="filters-bar">
+              <div class="filter-item search-input-wrap">
+                <input type="text" id="audit-search" class="form-control" placeholder="Search audit description, entity ID...">
+              </div>
+              <div class="filter-item">
+                <select id="audit-filter-action" class="form-control">
+                  <option value="">All Action Types</option>
+                  <option value="USER_LOGIN">User Logins</option>
+                  <option value="CASE_REGISTER">Case Registrations</option>
+                  <option value="ALLOCATION_CONFIRMED">Resource Allocations</option>
+                  <option value="BED_UPDATED">Bed Updates</option>
+                  <option value="AMBULANCE_STEP_SIMULATED">Ambulance Trips</option>
+                  <option value="CASE_CLOSED">Case Discharges</option>
+                </select>
+              </div>
+              <button id="audit-filter-reset" class="btn btn-secondary btn-sm">Reset</button>
+            </div>
+
+            <!-- Audit Table -->
+            <div class="table-responsive mt-3">
+              <table class="table" id="audit-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>User</th>
+                    <th>Action</th>
+                    <th>Entity</th>
+                    <th>Entity ID</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody id="audit-tbody"></tbody>
+              </table>
+            </div>
+
+            <div class="pagination-footer flex-between mt-3">
+              <div id="audit-page-info" class="page-info">Showing logs</div>
+              <div class="pagination-btns">
+                <button id="audit-prev-btn" class="btn btn-outline btn-sm">Previous</button>
+                <button id="audit-next-btn" class="btn btn-outline btn-sm">Next</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 9. SYSTEM SETTINGS & PRIORITIES            -->
+        <!-- ========================================== -->
+        <section id="panel-settings" class="view-panel">
+          <div class="card max-w-4xl mx-auto">
+            <div class="card-header">
+              <h3 class="card-title">Administrative Priority & System Configuration</h3>
+              <p class="card-subtitle">Configure operational triage weights, scores, and demonstration parameters</p>
+            </div>
+
+            <div class="settings-section">
+              <h4 class="section-title">Configurable Administrative Priorities</h4>
+              <p class="text-sm text-muted mb-3">Adjust the priority weight scores used by the recommendation engine (Default: Critical=100, High=75, Medium=50, Low=25).</p>
+
+              <form id="settings-priorities-form">
+                <div class="table-responsive">
+                  <table class="table">
+                    <thead>
+                      <tr>
+                        <th>Key</th>
+                        <th>Display Label</th>
+                        <th>Demonstration Score</th>
+                        <th>Badge Color</th>
+                      </tr>
+                    </thead>
+                    <tbody id="settings-priorities-tbody">
+                      <!-- Populated dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+                <div class="mt-3 text-right">
+                  <button type="submit" class="btn btn-primary">Save Priority Configuration</button>
+                </div>
+              </form>
+            </div>
+
+            <hr class="divider my-4">
+
+            <!-- Reset Demo Data Section -->
+            <div class="settings-section">
+              <h4 class="section-title text-danger">Reset Demonstration Database</h4>
+              <p class="text-sm text-muted">
+                Restores the database to pristine baseline demonstration data (14 initial cases, 24 beds, 10 doctors, 6 ambulances). 
+                Requires explicit confirmation.
+              </p>
+              <div class="mt-3">
+                <button id="btn-reset-demo-data" class="btn btn-danger">
+                  ⚠️ Reset Hospital Demo Data
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Spotlight Command Palette Modal (Ctrl + K) -->
+  <div id="command-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="command-palette-card">
+      <div class="command-palette-input-wrap">
+        <span>🔍</span>
+        <input type="text" id="command-palette-input" class="command-palette-input" placeholder="Type to search cases, beds, doctors, ambulances or navigate views... (Esc to close)">
+        <span class="kbd-hint">Esc</span>
+      </div>
+      <div id="command-palette-results" class="command-palette-results">
+        <!-- Results injected by JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Hackathon Guided Walkthrough Modal -->
+  <div id="tour-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="tour-step-card">
+      <div class="flex-between">
+        <span id="tour-badge" class="tour-step-badge">STEP 1 OF 5 &bull; HACKATHON SHOWCASE</span>
+        <button id="tour-close-btn" class="modal-close" style="color:#94a3b8;">&times;</button>
+      </div>
+      <h3 id="tour-title" class="tour-step-title">Welcome to SHERM Emergency Command Center</h3>
+      <p id="tour-body" class="tour-step-body">
+        Hospital emergency departments face critical delays during patient surges. SHERM is a full-stack centralized command center with persistent SQLite storage, real-time Server-Sent Events, heuristic resource allocation, and clinical handover management.
+      </p>
+      <div class="flex-between mt-4">
+        <div class="tour-progress-dots" id="tour-dots">
+          <span class="tour-dot active"></span>
+          <span class="tour-dot"></span>
+          <span class="tour-dot"></span>
+          <span class="tour-dot"></span>
+          <span class="tour-dot"></span>
+        </div>
+        <div class="flex-gap">
+          <button id="tour-prev-btn" class="btn btn-secondary btn-sm" disabled>Previous</button>
+          <button id="tour-action-btn" class="btn btn-outline btn-sm" style="border-color:#38bdf8;color:#38bdf8;">Try Step Action</button>
+          <button id="tour-next-btn" class="btn btn-primary btn-sm">Next Step &rarr;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Emergency Broadcast Modal (WhatsApp / SMS / Email Mass Alert) -->
+  <div id="broadcast-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">📲 Broadcast Emergency Notification</h3>
+        <button id="broadcast-modal-close" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="p-3 mb-3 border-rounded" style="background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.3);color:#25d366;font-size:0.8rem;">
+          <strong>Emergency Dispatch Channels:</strong> Sends simultaneous high-priority broadcast to on-call surgical teams, ICU intensivists, and trauma bays via WhatsApp, SMS, and Email.
+        </div>
+        <form id="broadcast-form">
+          <div class="form-group">
+            <label class="form-label">Broadcast Severity / Alert Code</label>
+            <select id="broadcast-code" class="form-control">
+              <option value="CODE_RED">🚨 CODE RED: Mass Casualty Trauma Surge</option>
+              <option value="CODE_BLUE">💙 CODE BLUE: Cardiac Arrest Protocol</option>
+              <option value="BED_CRISIS">⚠️ CRITICAL SHORTAGE: ICU Bed Saturation</option>
+              <option value="FLEET_DISPATCH">🚑 FLEET DISPATCH: Multi-Unit Site Response</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Target Recipient Teams</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;font-size:0.8rem;">
+              <label><input type="checkbox" checked> Trauma Surgeons</label>
+              <label><input type="checkbox" checked> ICU Intensivists</label>
+              <label><input type="checkbox" checked> Emergency Triage</label>
+              <label><input type="checkbox" checked> Ambulance Dispatch</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Emergency Broadcast Message</label>
+            <textarea id="broadcast-msg" class="form-control" rows="3" placeholder="Enter emergency briefing...">🚨 LEVEL 1 TRAUMA ALERT: Mass casualty intake at Metro Central. All on-call trauma teams report immediately.</textarea>
+          </div>
+          <div class="modal-actions mt-3">
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('broadcast-modal').classList.add('hidden')">Cancel</button>
+            <button type="submit" class="btn btn-primary" style="background:#25d366;border-color:#25d366;">
+              📲 Transmit WhatsApp & Email Broadcast
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application JavaScript Modules -->
+  <script src="/js/api.js"></script>
+  <script src="/js/sse.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/components.js"></script>
+  <script src="/js/charts.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
